@@ -1,0 +1,11 @@
+# Ignore compiled file
+*.o
+*.a
+*.exe
+*.dll
+
+# Ignore builded file
+/build/
+/dist/
+/bin/
+/node_modules/
