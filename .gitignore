@@ -1,11 +1,77 @@
 # Ignore compiled file
+.*
 *.o
+*.o.*
 *.a
-*.exe
-*.dll
+*.s
+*.ko
+*.so
+*.so.dbg
+*.mod.c
+*.i
+*.lst
+*.symtypes
+*.order
+modules.builtin
+*.elf
+*.bin
+*.gz
+*.bz2
+*.lzma
+*.xz
+*.lzo
+*.patch
+*.gcno
+
+#
+# Top-level generic files
+#
+/tags
+/TAGS
+/linux
+/vmlinux
+/vmlinuz
+/System.map
+/Module.markers
+/Module.symvers
+
+/kernel/kernel-4.9/tags
+/kernel/kernel-4.9/linux
+/kernel/kernel-4.9/vmlinux
+/kernel/kernel-4.9/vmlinuz
+/kernel/kernel-4.9/System.map
 
 # Ignore builded file
 /build/
 /dist/
 /bin/
 /node_modules/
+
+#
+# Generated include files
+#
+/kernel/kernel-4.9/include/config
+/kernel/kernel-4.9/include/linux/version.h
+/kernel/kernel-4.9/include/generated
+/kernel/kernel-4.9/arch/*/include/generated
+
+# stgit generated dirs
+patches-*
+
+# quilt's files
+patches
+series
+
+# cscope files
+cscope.*
+ncscope.*
+
+# gnu global files
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+
+*.orig
+*~
+\#*#

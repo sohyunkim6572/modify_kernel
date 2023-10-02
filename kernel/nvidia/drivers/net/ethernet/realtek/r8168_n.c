@@ -88,6 +88,8 @@
 #include <linux/seq_file.h>
 #endif
 
+extern void netif_napi_add_port_priority(struct napi_struct *napi, void (*set_port_priority)(int, int));
+
 /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
    The RTL chips use a 64 element hash table based on the Ethernet CRC. */
 static const int multicast_filter_limit = 32;
@@ -446,6 +448,7 @@ static int rtl8168_set_speed(struct net_device *dev, u8 autoneg,  u32 speed, u8 
 
 #ifdef CONFIG_R8168_NAPI
 static int rtl8168_poll(napi_ptr napi, napi_budget budget);
+void set_port_priority(int priority, int port);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
@@ -25150,6 +25153,7 @@ rtl8168_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 #ifdef CONFIG_R8168_NAPI
         RTL_NAPI_CONFIG(dev, tp, rtl8168_poll, R8168_NAPI_WEIGHT);
+	netif_napi_add_port_priority(&tp->napi, set_port_priority);
 #endif
 
 #ifdef CONFIG_R8168_VLAN
@@ -27973,6 +27977,25 @@ static irqreturn_t rtl8168_interrupt(int irq, void *dev_instance)
         } while (false);
 
         return IRQ_RETVAL(handled);
+}
+
+DEFINE_HASHTABLE(port_priority_table, 8);
+
+void set_port_priority(int priority, int port)
+{
+	struct port_priority *entry = kmalloc(sizeof(struct port_priority), GFP_KERNEL);
+	printk("set_port_priority priority: %d port: %d\n", priority, port);
+
+	if(!entry){
+		printk(KERN_WARNING "Failed to allocate memory for port priority entry\n");
+		return;
+	}
+
+	entry->port = port;
+	entry->priority = priority;
+	INIT_HLIST_NODE(&entry->node);
+
+	hash_add(port_priority_table, &entry->node, port);
 }
 
 #ifdef CONFIG_R8168_NAPI

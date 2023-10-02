@@ -315,6 +315,7 @@ struct napi_struct {
 	int			weight;
 	unsigned int		gro_count;
 	int			(*poll)(struct napi_struct *, int);
+	int			(*set_port_priority)(int, int);
 #ifdef CONFIG_NETPOLL
 	spinlock_t		poll_lock;
 	int			poll_owner;

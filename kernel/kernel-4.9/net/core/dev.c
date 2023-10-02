@@ -5296,6 +5296,28 @@ out_unlock:
 	return work;
 }
 
+void netif_napi_add_port_priority(struct napi_struct *napi, int (*set_port_priority)(int, int))
+{
+	napi->set_port_priority = set_port_priority;
+}
+
+void connect_port_priority(int priority, int port)
+{
+	struct napi_struct *n;
+	printk("connect_port_priority\n");
+
+	rcu_read_lock();
+	n = napi_by_id(65);
+	rcu_read_unlock();
+
+	if (!n) {
+		pr_err("napi_by_id failed\n");
+		return;
+	}
+	n->set_port_priority(priority, port);
+}
+EXPORT_SYMBOL(connect_port_priority);
+
 static __latent_entropy void net_rx_action(struct softirq_action *h)
 {
 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);

@@ -37,6 +37,16 @@
 #include "r8168_fiber.h"
 #include "pgdrv.h"
 
+struct port_priority {
+	int port;
+	int priority;
+	struct hlist_node node;
+};
+
+struct priority_queue {
+	struct sk_buff_head queue[100];
+};
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 static inline void eth_hw_addr_random(struct net_device *dev)
 {
