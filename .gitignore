@@ -40,6 +40,7 @@ modules.builtin
 /kernel/kernel-4.9/vmlinux
 /kernel/kernel-4.9/vmlinuz
 /kernel/kernel-4.9/System.map
+/kernel/kernel-4.9/Module.symvers
 
 # Ignore builded file
 /build/
