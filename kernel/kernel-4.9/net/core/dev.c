@@ -5319,6 +5319,38 @@ void connect_port_priority(int priority, int port)
 }
 EXPORT_SYMBOL(connect_port_priority);
 
+static void net_rt_handler_action(void)
+{
+	struct napi_struct *n;
+
+	rcu_read_lock();
+	n = napi_by_id(65);
+	rcu_read_unlock();
+
+	if (!n) {
+		pr_err("napi_by_id failed\n");
+		return;
+	}
+	n->rt_poll(n);
+}
+EXPORT_SYMBOL(net_rt_handler_action);
+
+static int get_highest_prio(void)
+{
+	struct napi_struct *n;
+
+	rcu_read_lock();
+	n = napi_by_id(65);
+	rcu_read_unlock();
+
+	if (!n) {
+		pr_err("napi_by_id failed\n");
+		return;
+	}
+	return n->highest_prio();
+}
+EXPORT_SYMBOL(get_highest_prio);
+
 static __latent_entropy void net_rx_action(struct softirq_action *h)
 {
 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);

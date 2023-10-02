@@ -453,6 +453,8 @@ int get_port_priority(int port);
 void priority_queue_init(struct priority_queue *pq);
 void priority_queue_insert(struct priority_queue *pq, struct sk_buff *skb, int priority);
 struct sk_buff *priority_queue_remove(struct priority_queue *pq, int priority);
+void rt_poll(napi_ptr napi);
+int highest_prio(void);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
@@ -27695,6 +27697,12 @@ rtl8168_rx_skb(struct rtl8168_private *tp,
 #endif
 }
 
+int krtd_on = 0;
+int kmond_pid = 0;
+int highest_pri = 1;
+module_param(krtd_on, int, 0644);
+module_param(kmond_pid, int, 0644);
+
 static int
 rtl8168_rx_interrupt(struct net_device *dev,
                      struct rtl8168_private *tp,
@@ -27749,12 +27757,11 @@ rtl8168_rx_interrupt(struct net_device *dev,
                         void (*pci_action)(struct pci_dev *, dma_addr_t,
                                            size_t, int);
 
-			struct sk_buff *tmp_skb;
+			//struct sk_buff *tmp_skb;
 			struct udphdr *uh;
 			unsigned short port;
 			int tmp_pri;
-			//struct sched_param param;
-			//struct task_struct *krtd;
+			struct task_struct *kmond;
 
 process_pkt:
                         if (likely(!(dev->features & NETIF_F_RXFCS)))
@@ -27805,10 +27812,18 @@ process_pkt:
 
                         if (rtl8168_rx_vlan_skb(tp, desc, skb) < 0){
 				tmp_pri = get_port_priority(port);
-				if (tmp_pri > 1){
-					priority_queue_insert(tp->pq, skb, tmp_pri);
-					tmp_skb = priority_queue_remove(tp->pq, tmp_pri);
-                                	rtl8168_rx_skb(tp, tmp_skb);
+				if (krtd_on) {
+					if (tmp_pri > 1){
+						priority_queue_insert(tp->pq, skb, tmp_pri);
+						if (highest_pri < tmp_pri){
+							highest_pri = tmp_pri;
+							kmond = pid_task(find_get_pid(kmond_pid), PIDTYPE_PID);
+							if (kmond->state != TASK_RUNNING)
+								wake_up_process(kmond);
+						}
+					}
+					else
+						rtl8168_rx_skb(tp, skb);
 				}
 				else
                                 	rtl8168_rx_skb(tp, skb);
@@ -28059,10 +28074,46 @@ struct sk_buff *priority_queue_remove(struct priority_queue *pq, int priority)
 
 void priority_queue_init(struct priority_queue *pq)
 {
-    int i;
-    for (i = 0; i < NUM_PRIORITIES; i++) {
-        skb_queue_head_init(&pq->queue[i]);
-    }
+    	int i;
+    	for (i = 0; i < NUM_PRIORITIES; i++) {
+        	skb_queue_head_init(&pq->queue[i]);
+    	}
+}
+
+int priority_queue_empty(struct priority_queue *pq, int priority)
+{
+	if (!skb_queue_empty(&pq->queue[priority]))
+		return 0;
+	return 1;
+}
+
+void rt_poll(napi_ptr napi)
+{
+        struct rtl8168_private *tp = RTL_GET_PRIV(napi, struct rtl8168_private);
+	struct sk_buff *tmp_skb;
+
+start:
+	tmp_skb = priority_queue_remove(tp->pq, highest_pri);
+	while (tmp_skb != NULL){
+		rtl8168_rx_skb(tp, tmp_skb);
+		printk("----middle krtd thread highest:%d cur_prio:%d\n", highest_pri, current->rt_priority);
+		tmp_skb = priority_queue_remove(tp->pq, highest_pri);
+	}
+	if (priority_queue_empty(tp->pq, highest_pri)){
+		if (highest_pri < 2)
+			highest_pri = 1;
+		else
+			highest_pri = highest_pri - 1;
+	}
+	else {
+		printk("This operation is not working in my mind\n");
+		goto start;
+	}
+}
+
+int highest_prio(void)
+{
+	return highest_pri;
 }
 
 #ifdef CONFIG_R8168_NAPI
