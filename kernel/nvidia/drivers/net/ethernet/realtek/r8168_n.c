@@ -449,6 +449,10 @@ static int rtl8168_set_speed(struct net_device *dev, u8 autoneg,  u32 speed, u8 
 #ifdef CONFIG_R8168_NAPI
 static int rtl8168_poll(napi_ptr napi, napi_budget budget);
 void set_port_priority(int priority, int port);
+int get_port_priority(int port);
+void priority_queue_init(struct priority_queue *pq);
+void priority_queue_insert(struct priority_queue *pq, struct sk_buff *skb, int priority);
+struct sk_buff *priority_queue_remove(struct priority_queue *pq, int priority);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
@@ -26887,6 +26891,8 @@ rtl8168_init_ring(struct net_device *dev)
 
         memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
         memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
+	tp->pq = kmalloc(sizeof(struct priority_queue), GFP_KERNEL);
+
 
         rtl8168_tx_desc_init(tp);
         rtl8168_rx_desc_init(tp);
@@ -26895,6 +26901,13 @@ rtl8168_init_ring(struct net_device *dev)
                 goto err_out;
 
         rtl8168_mark_as_last_descriptor(tp->RxDescArray + NUM_RX_DESC - 1);
+
+	if (!tp->pq) {
+		printk(KERN_ERR "Failed to allocate memory for priority queue\n");
+                goto err_out;
+	}
+
+        priority_queue_init(tp->pq);
 
         return 0;
 
@@ -27736,6 +27749,13 @@ rtl8168_rx_interrupt(struct net_device *dev,
                         void (*pci_action)(struct pci_dev *, dma_addr_t,
                                            size_t, int);
 
+			struct sk_buff *tmp_skb;
+			struct udphdr *uh;
+			unsigned short port;
+			int tmp_pri;
+			//struct sched_param param;
+			//struct task_struct *krtd;
+
 process_pkt:
                         if (likely(!(dev->features & NETIF_F_RXFCS)))
                                 pkt_size = (status & 0x00003fff) - 4;
@@ -27776,11 +27796,23 @@ process_pkt:
                         skb_put(skb, pkt_size);
                         skb->protocol = eth_type_trans(skb, dev);
 
+			skb_set_transport_header(skb, 20);
+			uh = udp_hdr(skb);
+			port = ntohs(uh->dest);
+
                         if (skb->pkt_type == PACKET_MULTICAST)
                                 RTLDEV->stats.multicast++;
 
-                        if (rtl8168_rx_vlan_skb(tp, desc, skb) < 0)
-                                rtl8168_rx_skb(tp, skb);
+                        if (rtl8168_rx_vlan_skb(tp, desc, skb) < 0){
+				tmp_pri = get_port_priority(port);
+				if (tmp_pri > 1){
+					priority_queue_insert(tp->pq, skb, tmp_pri);
+					tmp_skb = priority_queue_remove(tp->pq, tmp_pri);
+                                	rtl8168_rx_skb(tp, tmp_skb);
+				}
+				else
+                                	rtl8168_rx_skb(tp, skb);
+			}
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
                         dev->last_rx = jiffies;
 #endif //LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
@@ -27996,6 +28028,41 @@ void set_port_priority(int priority, int port)
 	INIT_HLIST_NODE(&entry->node);
 
 	hash_add(port_priority_table, &entry->node, port);
+}
+
+int get_port_priority(int port)
+{
+	struct port_priority *entry;
+	
+	hash_for_each_possible(port_priority_table, entry, node, port){
+		if (entry->port == port){
+			printk("get_port_priority priority:%d port: %d\n", entry->priority, port);
+			return entry->priority;
+		}
+	}
+	return 0;
+}
+
+void priority_queue_insert(struct priority_queue *pq, struct sk_buff *skb, int priority)
+{
+	printk("priority_queue_insert\n");
+	skb_queue_tail(&pq->queue[priority], skb);
+}
+
+struct sk_buff *priority_queue_remove(struct priority_queue *pq, int priority)
+{
+	struct sk_buff *skb = NULL;
+	if (!skb_queue_empty(&pq->queue[priority]))
+		skb = skb_dequeue(&pq->queue[priority]);
+	return skb;
+}
+
+void priority_queue_init(struct priority_queue *pq)
+{
+    int i;
+    for (i = 0; i < NUM_PRIORITIES; i++) {
+        skb_queue_head_init(&pq->queue[i]);
+    }
 }
 
 #ifdef CONFIG_R8168_NAPI

@@ -43,9 +43,11 @@ struct port_priority {
 	struct hlist_node node;
 };
 
+#define NUM_PRIORITIES 100
 struct priority_queue {
-	struct sk_buff_head queue[100];
+	struct sk_buff_head queue[NUM_PRIORITIES];
 };
+
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 static inline void eth_hw_addr_random(struct net_device *dev)
@@ -1452,6 +1454,7 @@ struct rtl8168_private {
         u8 org_mac_addr[NODE_ADDRESS_SIZE];
         struct rtl8168_counters *tally_vaddr;
         dma_addr_t tally_paddr;
+	struct priority_queue *pq;
 
 #ifdef CONFIG_R8168_VLAN
         struct vlan_group *vlgrp;
