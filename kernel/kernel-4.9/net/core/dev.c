@@ -5300,6 +5300,7 @@ void netif_napi_add_port_priority(struct napi_struct *napi, int (*set_port_prior
 {
 	napi->set_port_priority = set_port_priority;
 }
+EXPORT_SYMBOL(netif_napi_add_port_priority);
 
 void connect_port_priority(int priority, int port)
 {
