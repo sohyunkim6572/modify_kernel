@@ -5302,6 +5302,18 @@ void netif_napi_add_port_priority(struct napi_struct *napi, int (*set_port_prior
 }
 EXPORT_SYMBOL(netif_napi_add_port_priority);
 
+void netif_napi_add_rt_poll(struct napi_struct *napi, int (*rt_poll)(struct napi_struct*))
+{
+	napi->rt_poll = rt_poll;
+}
+EXPORT_SYMBOL(netif_napi_add_rt_poll);
+
+void netif_napi_add_highest_prio(struct napi_struct *napi, int (*highest_prio)(void))
+{
+	napi->highest_prio = highest_prio;
+}
+EXPORT_SYMBOL(netif_napi_add_highest_prio);
+
 void connect_port_priority(int priority, int port)
 {
 	struct napi_struct *n;
@@ -5319,7 +5331,7 @@ void connect_port_priority(int priority, int port)
 }
 EXPORT_SYMBOL(connect_port_priority);
 
-static void net_rt_handler_action(void)
+void net_rt_handler_action(void)
 {
 	struct napi_struct *n;
 
@@ -5331,11 +5343,12 @@ static void net_rt_handler_action(void)
 		pr_err("napi_by_id failed\n");
 		return;
 	}
-	n->rt_poll(n);
+
+        n->rt_poll(n);
 }
 EXPORT_SYMBOL(net_rt_handler_action);
 
-static int get_highest_prio(void)
+int get_highest_prio(void)
 {
 	struct napi_struct *n;
 
@@ -5345,7 +5358,7 @@ static int get_highest_prio(void)
 
 	if (!n) {
 		pr_err("napi_by_id failed\n");
-		return;
+		return 0;
 	}
 	return n->highest_prio();
 }

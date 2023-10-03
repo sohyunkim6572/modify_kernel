@@ -50,7 +50,6 @@ static int run_monitor(void* arg)
 	for (;;) {
 		spin_lock_irqsave(&set_lock, flags);
 
-		//printk("[3] kmond thread start: %d\n", current->rt_priority);
 		msg_priority = get_highest_prio();
 		krtd_priority = krtd->rt_priority;
 	
@@ -82,7 +81,7 @@ static int run_rt_handler(void* arg)
 	int cur_priority = 1;
 	struct sched_param param;
 	int check = 0;
-	struct timeval t1;
+	//struct timeval t1;
 
 	//file
 	u64 end;

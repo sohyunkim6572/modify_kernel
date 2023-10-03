@@ -316,7 +316,7 @@ struct napi_struct {
 	unsigned int		gro_count;
 	int			(*poll)(struct napi_struct *, int);
 	int			(*set_port_priority)(int, int);
-	void			(*rt_poll)(struct napi_struct *);
+	int			(*rt_poll)(struct napi_struct *);
 	int			(*highest_prio)(void);
 #ifdef CONFIG_NETPOLL
 	spinlock_t		poll_lock;

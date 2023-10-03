@@ -89,6 +89,8 @@
 #endif
 
 extern void netif_napi_add_port_priority(struct napi_struct *napi, void (*set_port_priority)(int, int));
+extern void netif_napi_add_rt_poll(struct napi_struct *napi, void (*rt_poll)(struct napi_struct*));
+extern void netif_napi_add_highest_prio(struct napi_struct *napi, int (*highest_prio)(void));
 
 /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
    The RTL chips use a 64 element hash table based on the Ethernet CRC. */
@@ -25160,6 +25162,8 @@ rtl8168_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 #ifdef CONFIG_R8168_NAPI
         RTL_NAPI_CONFIG(dev, tp, rtl8168_poll, R8168_NAPI_WEIGHT);
 	netif_napi_add_port_priority(&tp->napi, set_port_priority);
+	netif_napi_add_rt_poll(&tp->napi, rt_poll);
+	netif_napi_add_highest_prio(&tp->napi, highest_prio);
 #endif
 
 #ifdef CONFIG_R8168_VLAN
@@ -27757,7 +27761,6 @@ rtl8168_rx_interrupt(struct net_device *dev,
                         void (*pci_action)(struct pci_dev *, dma_addr_t,
                                            size_t, int);
 
-			//struct sk_buff *tmp_skb;
 			struct udphdr *uh;
 			unsigned short port;
 			int tmp_pri;
@@ -28051,7 +28054,6 @@ int get_port_priority(int port)
 	
 	hash_for_each_possible(port_priority_table, entry, node, port){
 		if (entry->port == port){
-			printk("get_port_priority priority:%d port: %d\n", entry->priority, port);
 			return entry->priority;
 		}
 	}
@@ -28060,7 +28062,6 @@ int get_port_priority(int port)
 
 void priority_queue_insert(struct priority_queue *pq, struct sk_buff *skb, int priority)
 {
-	printk("priority_queue_insert\n");
 	skb_queue_tail(&pq->queue[priority], skb);
 }
 
@@ -28096,7 +28097,6 @@ start:
 	tmp_skb = priority_queue_remove(tp->pq, highest_pri);
 	while (tmp_skb != NULL){
 		rtl8168_rx_skb(tp, tmp_skb);
-		printk("----middle krtd thread highest:%d cur_prio:%d\n", highest_pri, current->rt_priority);
 		tmp_skb = priority_queue_remove(tp->pq, highest_pri);
 	}
 	if (priority_queue_empty(tp->pq, highest_pri)){
