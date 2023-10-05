@@ -24,22 +24,6 @@ extern void net_rt_handler_action(void);
 DEFINE_SPINLOCK(priority_lock);
 DEFINE_SPINLOCK(set_lock);
 
-//file
-//#define FILE_PATH "/home/final/test/experiment/profiling/sub_RTHandler.txt"
-struct file *f;
-static int write_to_file(char *buf, int len) {
-    mm_segment_t oldfs;
-    int ret;
-
-    oldfs = get_fs();
-    set_fs(get_ds());
-
-    ret = vfs_write(f, buf, len, &f->f_pos);
-
-    set_fs(oldfs);
-
-    return ret;
-}
 
 static int run_monitor(void* arg)
 {
@@ -81,44 +65,19 @@ static int run_rt_handler(void* arg)
 	int cur_priority = 1;
 	struct sched_param param;
 	int check = 0;
-	//struct timeval t1;
 
-	//file
-	u64 end;
-	/*
-        char buf[256];
-        int len;
-        u64 start, end, elapsed;
-        f = filp_open(FILE_PATH, O_WRONLY|O_CREAT, 0644);
-        if (IS_ERR(f)) {
-            printk(KERN_ERR "Failed to open the file\n");
-            return PTR_ERR(f);
-        }
-	*/
 	for (;;) {
 		spin_lock_irqsave(&priority_lock, flags);
 
-		//start = ktime_get_ns();
-		check = current->rt_priority;
+		//check = current->rt_priority;
 		
 		net_rt_handler_action();
-		end = ktime_get_ns();
 
 		spin_unlock_irqrestore(&priority_lock, flags);
 
 		cur_priority = get_highest_prio();
 		param.sched_priority = cur_priority;
 		sched_setscheduler(current, SCHED_FIFO, &param);		
-
-		//end = ktime_get_ns();
-                //elapsed = end - start;
-                //printk("[4] krtd thread finish %llu.%09llu s prio:%d\n", end/1000000000, end%1000000000, check);
-
-		//spin_unlock_irqrestore(&priority_lock, flags);
-		
-		//set_current_state(TASK_INTERRUPTIBLE);
-		//schedule_timeout(msecs_to_jiffies(1));
-
 
 		if (current->rt_priority < 50) {
 			set_current_state(TASK_INTERRUPTIBLE);
@@ -128,13 +87,7 @@ static int run_rt_handler(void* arg)
 		if (kthread_should_stop())
 			break;
 		
-		//u64 elapsed_sec = elapsed / 1000000000; // Get the second part
-                //u64 elapsed_nsec = elapsed % 1000000000; // Get the fractional part
-                //len = sprintf(buf, "Elapsed time: %llu.%09llu s prio:%d\n", elapsed_sec, elapsed_nsec, check);
-                //write_to_file(buf, len);
 	}
-
-	//filp_close(f, NULL);	
 
 	return 0;
 }

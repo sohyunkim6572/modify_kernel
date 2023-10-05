@@ -5308,6 +5308,12 @@ void netif_napi_add_rt_poll(struct napi_struct *napi, int (*rt_poll)(struct napi
 }
 EXPORT_SYMBOL(netif_napi_add_rt_poll);
 
+void netif_napi_add_non_rt_poll(struct napi_struct *napi, int (*non_rt_poll)(struct napi_struct*))
+{
+	napi->non_rt_poll = non_rt_poll;
+}
+EXPORT_SYMBOL(netif_napi_add_non_rt_poll);
+
 void netif_napi_add_highest_prio(struct napi_struct *napi, int (*highest_prio)(void))
 {
 	napi->highest_prio = highest_prio;
@@ -5347,6 +5353,23 @@ void net_rt_handler_action(void)
         n->rt_poll(n);
 }
 EXPORT_SYMBOL(net_rt_handler_action);
+
+void net_non_rt_handler_action(void)
+{
+	struct napi_struct *n;
+
+	rcu_read_lock();
+	n = napi_by_id(65);
+	rcu_read_unlock();
+
+	if (!n) {
+		pr_err("napi_by_id failed\n");
+		return;
+	}
+
+        n->non_rt_poll(n);
+}
+EXPORT_SYMBOL(net_non_rt_handler_action);
 
 int get_highest_prio(void)
 {

@@ -1454,6 +1454,8 @@ struct rtl8168_private {
         u8 org_mac_addr[NODE_ADDRESS_SIZE];
         struct rtl8168_counters *tally_vaddr;
         dma_addr_t tally_paddr;
+	struct sk_buff_head *non_rt;
+	struct port_priority *pp;
 	struct priority_queue *pq;
 
 #ifdef CONFIG_R8168_VLAN

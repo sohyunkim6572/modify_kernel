@@ -90,6 +90,7 @@
 
 extern void netif_napi_add_port_priority(struct napi_struct *napi, void (*set_port_priority)(int, int));
 extern void netif_napi_add_rt_poll(struct napi_struct *napi, void (*rt_poll)(struct napi_struct*));
+extern void netif_napi_add_non_rt_poll(struct napi_struct *napi, void (*non_rt_poll)(struct napi_struct*));
 extern void netif_napi_add_highest_prio(struct napi_struct *napi, int (*highest_prio)(void));
 
 /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
@@ -456,6 +457,7 @@ void priority_queue_init(struct priority_queue *pq);
 void priority_queue_insert(struct priority_queue *pq, struct sk_buff *skb, int priority);
 struct sk_buff *priority_queue_remove(struct priority_queue *pq, int priority);
 void rt_poll(napi_ptr napi);
+void non_rt_poll(napi_ptr napi);
 int highest_prio(void);
 #endif
 
@@ -25163,6 +25165,7 @@ rtl8168_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
         RTL_NAPI_CONFIG(dev, tp, rtl8168_poll, R8168_NAPI_WEIGHT);
 	netif_napi_add_port_priority(&tp->napi, set_port_priority);
 	netif_napi_add_rt_poll(&tp->napi, rt_poll);
+	netif_napi_add_non_rt_poll(&tp->napi, non_rt_poll);
 	netif_napi_add_highest_prio(&tp->napi, highest_prio);
 #endif
 
@@ -26898,6 +26901,8 @@ rtl8168_init_ring(struct net_device *dev)
         memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
         memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
 	tp->pq = kmalloc(sizeof(struct priority_queue), GFP_KERNEL);
+	tp->non_rt = kmalloc(sizeof(struct sk_buff_head), GFP_KERNEL);
+	skb_queue_head_init(tp->non_rt);
 
 
         rtl8168_tx_desc_init(tp);
@@ -27816,7 +27821,10 @@ process_pkt:
                         if (rtl8168_rx_vlan_skb(tp, desc, skb) < 0){
 				tmp_pri = get_port_priority(port);
 				if (krtd_on) {
-					if (tmp_pri > 1){
+					if (port == 7777){
+						skb_queue_tail(tp->non_rt, skb);
+					}
+					else if (tmp_pri > 1){
 						priority_queue_insert(tp->pq, skb, tmp_pri);
 						if (highest_pri < tmp_pri){
 							highest_pri = tmp_pri;
@@ -28109,6 +28117,19 @@ start:
 		printk("This operation is not working in my mind\n");
 		goto start;
 	}
+}
+
+void non_rt_poll(napi_ptr napi)
+{
+        struct rtl8168_private *tp = RTL_GET_PRIV(napi, struct rtl8168_private);
+	struct sk_buff *tmp_skb;
+	tmp_skb = __skb_dequeue(tp->non_rt);
+	rtl8168_rx_skb(tp, tmp_skb);
+	/*
+	while ((tmp_skb = __skb_dequeue(tp->non_rt))){
+		rtl8168_rx_skb(tp, tmp_skb);
+	}
+	*/
 }
 
 int highest_prio(void)
